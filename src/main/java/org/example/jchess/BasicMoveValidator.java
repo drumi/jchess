@@ -152,7 +152,11 @@ public final class BasicMoveValidator implements MoveValidator {
     }
 
     private boolean isCorrectPawnMove(BoardSnapshot boardSnapshot, Move move) {
-        if (movedHorizontally(move.getFrom(), move.getTo())) {
+        if (!movedForward(move.getFrom(), move.getTo(), move.getColor())) {
+            return false;
+        }
+
+        if (movedVertically(move.getFrom(), move.getTo())) {
             if (isOccupied(boardSnapshot.getBoard(), move.getTo())) {
                 return false;
             }
@@ -170,7 +174,7 @@ public final class BasicMoveValidator implements MoveValidator {
             return isCorrectPawnDoubleSquarePush(boardSnapshot.getBoard(), move);
         }
 
-        if (movedVertically(move.getFrom(), move.getTo())) {
+        if (movedDiagonally(move.getFrom(), move.getTo())) {
             if (!isOccupied(boardSnapshot.getBoard(), move.getTo())) {
                 return isValidEnPassant(boardSnapshot, move);
             }
