@@ -1,5 +1,6 @@
 package org.example.jchess;
 
+import java.io.Console;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +10,7 @@ public final class BasicMoveValidator implements MoveValidator {
     @Override
     public boolean isValid(BoardSnapshot boardSnapshot, Move moveToBeMade) {
 
-        return hasSameSourceAndDestination(moveToBeMade) &&
+        return !hasSameSourceAndDestination(moveToBeMade) &&
                 isMoveInbounds(moveToBeMade) &&
                 !changesColor(boardSnapshot.getBoard(), moveToBeMade) &&
                 didWhiteStart(boardSnapshot, moveToBeMade) &&
@@ -128,8 +129,18 @@ public final class BasicMoveValidator implements MoveValidator {
         OccupiedTile rooksTile = new OccupiedTile(Piece.ROOK, move.getColor());
 
         int deltaX = move.getTo().getX() - move.getFrom().getX();
+        int deltaY = move.getTo().getY() - move.getFrom().getY();
         int direction = getDirection(deltaX);
         int rooksExpectedX = direction > 0 ? rightRooksExpectedX: leftRooksExpectedX;
+
+        if (deltaY != 0) {
+            return false;
+        }
+
+        var positionDestToCheckForPiecesInBetween = new Position(rooksExpectedX, castlingY);
+        if (boardHasPiecesBetween(boardSnapshot.getBoard(), move.getFrom(), positionDestToCheckForPiecesInBetween)) {
+            return false;
+        }
 
         if (wasPieceEverMoved(boardSnapshot, move.getFrom(), kingsTile) &&
                 wasPieceEverMoved(boardSnapshot, new Position(rooksExpectedX, castlingY), rooksTile)) {
@@ -235,6 +246,10 @@ public final class BasicMoveValidator implements MoveValidator {
             return false;
         }
 
+        if (!boardSnapshot.getLastMove().isPresent()) {
+            return false;
+        }
+
         if (!movedVertically(move.getFrom(), move.getTo())) {
             return false;
         }
@@ -304,14 +319,14 @@ public final class BasicMoveValidator implements MoveValidator {
 
     private boolean movedLikeAKnight(Position src, Position dest) {
         int deltaX = dest.getX() - src.getX();
-        int deltaY = dest.getX() - dest.getY();
+        int deltaY = dest.getY() - src.getY();
 
         return deltaX * deltaX + deltaY * deltaY == 5;
     }
 
     private boolean areNeighbouringPositions(Position src, Position dest) {
         int deltaX = dest.getX() - src.getX();
-        int deltaY = dest.getX() - dest.getY();
+        int deltaY = dest.getY() - src.getY();
 
         return deltaX * deltaX + deltaY * deltaY <= 2;
     }
@@ -321,15 +336,15 @@ public final class BasicMoveValidator implements MoveValidator {
     }
 
     private Optional<Position> obtainFirstOccupiedTilePositionBetween(List<List<Optional<OccupiedTile>>> board, Position src, Position dest) {
-        var tile = obtainFirstOccupiedTilePositionIncludingDest(board, src, dest);
-        boolean isDestinationTileFound = tile.map(t -> t.equals(dest))
-                                                .orElse(false);
+        var tilePosition = obtainFirstOccupiedTilePositionIncludingDest(board, src, dest);
+        boolean isDestinationTileFound = tilePosition.map(t -> t.equals(dest))
+                                                     .orElse(false);
 
-        return isDestinationTileFound ? Optional.empty() : tile;
+        return isDestinationTileFound ? Optional.empty() : tilePosition;
     }
     private Optional<Position> obtainFirstOccupiedTilePositionIncludingDest(List<List<Optional<OccupiedTile>>> board, Position src, Position dest) {
         int deltaX = dest.getX() - src.getX();
-        int deltaY = dest.getX() - dest.getY();
+        int deltaY = dest.getY() - src.getY();
         int directionOfX = getDirection(deltaX);
         int directionOfY = getDirection(deltaY);
 
@@ -337,7 +352,7 @@ public final class BasicMoveValidator implements MoveValidator {
         int y = src.getY();
 
         while (x != dest.getX() && y != dest.getY()) {
-            if (board.get(x).get(y).isPresent()){
+            if (board.get(y).get(x).isPresent()){
                 return Optional.of(new Position(x, y));
             }
 
@@ -345,7 +360,7 @@ public final class BasicMoveValidator implements MoveValidator {
             y += directionOfY;
         }
 
-        if (board.get(x).get(y).isPresent()){
+        if (board.get(y).get(x).isPresent()){
             return Optional.of(new Position(x, y));
         }
 
@@ -503,12 +518,12 @@ public final class BasicMoveValidator implements MoveValidator {
     }
 
     private boolean movedForward(Position src, Position dest, Color player) {
-        int deltaY = dest.getY() - dest.getX();
+        int deltaY = dest.getY() - src.getY();
 
         if (player == Color.WHITE) {
-            return deltaY > 0;
+            return deltaY < 0;
         }
 
-        return deltaY < 0;
+        return deltaY > 0;
     }
 }

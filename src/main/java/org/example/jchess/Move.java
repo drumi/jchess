@@ -62,4 +62,15 @@ public final class Move {
         result = 31 * result + promotedTo.hashCode();
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "Move{" +
+                "from=" + from +
+                ", to=" + to +
+                ", piece=" + piece +
+                ", color=" + color +
+                ", promotedTo=" + promotedTo +
+                '}';
+    }
 }
