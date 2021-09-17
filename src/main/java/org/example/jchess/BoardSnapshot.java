@@ -7,15 +7,15 @@ import java.util.Optional;
 
 public final class BoardSnapshot {
 
-    private final List<List<Optional<OccupiedTile>>> board;
+    private final List<List<Optional<OccupiedTile>>> tiles;
     private final List<Move> movesHistory;
 
-    public BoardSnapshot(List<List<Optional<OccupiedTile>>> board, List<Move> movesHistory) {
-        Objects.requireNonNull(board);
+    public BoardSnapshot(List<List<Optional<OccupiedTile>>> tiles, List<Move> movesHistory) {
+        Objects.requireNonNull(tiles);
         Objects.requireNonNull(movesHistory);
-        board.stream().forEach(Objects::requireNonNull);
+        tiles.stream().forEach(Objects::requireNonNull);
 
-        this.board = copy(board);
+        this.tiles = copy(tiles);
         this.movesHistory = new ArrayList<>(movesHistory);
     }
 
@@ -29,8 +29,8 @@ public final class BoardSnapshot {
         return dest;
     }
 
-    public List<List<Optional<OccupiedTile>>> getBoard() {
-        return copy(board);
+    public List<List<Optional<OccupiedTile>>> getTiles() {
+        return copy(tiles);
     }
 
     public List<Move> getMovesHistory() {

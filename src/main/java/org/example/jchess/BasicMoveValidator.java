@@ -1,18 +1,17 @@
 package org.example.jchess;
 
-import java.io.Console;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-public final class BasicMoveValidator implements MoveValidator, CheckChecker {
+public final class BasicMoveValidator implements MoveValidator, MoveApplier, CheckChecker {
 
     @Override
     public boolean isValid(BoardSnapshot boardSnapshot, Move moveToBeMade) {
 
         return !hasSameSourceAndDestination(moveToBeMade) &&
                 isMoveInbounds(moveToBeMade) &&
-                !changesColor(boardSnapshot.getBoard(), moveToBeMade) &&
+                !changesColor(boardSnapshot.getTiles(), moveToBeMade) &&
                 didWhiteStart(boardSnapshot, moveToBeMade) &&
                 !isPlayingTwice(boardSnapshot, moveToBeMade) &&
                 !capturesPieceWithSameColor(boardSnapshot, moveToBeMade) &&
@@ -22,6 +21,53 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
     @Override
     public boolean isUnderCheck(List<List<Optional<OccupiedTile>>> board, Color defender) {
         return isKingUnderAttack(board, defender);
+    }
+
+    @Override
+    public BoardSnapshot applyMove(BoardSnapshot boardSnapshot, Move move) {
+        var tiles = boardSnapshot.getTiles();
+        var moveHistory = boardSnapshot.getMovesHistory();
+
+        Optional<OccupiedTile> tile = tiles.get(move.getFrom().getY())
+                                           .get(move.getFrom().getX());
+        tiles.get(move.getTo().getY())
+             .set(move.getTo().getX(), tile);
+
+        tiles.get(move.getFrom().getY())
+             .set(move.getFrom().getX(), Optional.empty());
+
+        if (move.getPiece() == Piece.KING) {
+            int deltaX = move.getTo().getX() - move.getFrom().getX();
+            int direction = getDirection(deltaX);
+
+            if (Math.abs(deltaX) == 2) {
+                int rooksX = direction > 0 ? 7 : 0;
+
+                Optional<OccupiedTile> rooksTile = tiles.get(move.getFrom().getY())
+                                                        .get(move.getFrom().getX());
+
+                tiles.get(move.getTo().getY())
+                     .set(rooksX, Optional.empty());
+
+                tiles.get(move.getTo().getY())
+                     .set(move.getFrom().getX() - direction, rooksTile);
+            }
+        }
+
+        if (move.getPiece() == Piece.PAWN) {
+            if (isValidPawnPromotionData(move)) {
+                OccupiedTile promotedTile = new OccupiedTile(move.getPromotedTo().get(), move.getColor());
+                tiles.get(move.getTo().getY())
+                     .set(move.getTo().getX(), Optional.of(promotedTile));
+            } else if (isValidEnPassant(boardSnapshot, move)) {
+                tiles.get(move.getFrom().getY())
+                     .set(move.getTo().getX(), Optional.empty());
+            }
+        }
+
+        moveHistory.add(move);
+
+        return new BoardSnapshot(tiles, moveHistory);
     }
 
     private boolean hasSameSourceAndDestination(Move move) {
@@ -41,7 +87,7 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
     private boolean capturesPieceWithSameColor(BoardSnapshot boardSnapshot, Move move) {
         int destX = move.getTo().getX();
         int destY = move.getTo().getY();
-        Optional<OccupiedTile> tile = boardSnapshot.getBoard()
+        Optional<OccupiedTile> tile = boardSnapshot.getTiles()
                                                    .get(destY)
                                                    .get(destX);
 
@@ -86,7 +132,7 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
         switch (move.getPiece()) {
             case BISHOP:
                 return movedDiagonally(src, dest) &&
-                        !boardHasPiecesBetween(boardSnapshot.getBoard(), src, dest) &&
+                        !boardHasPiecesBetween(boardSnapshot.getTiles(), src, dest) &&
                         !isKingIsUnderAttackAfterMove(boardSnapshot, move);
 
             case KING:
@@ -107,12 +153,12 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
 
             case QUEEN:
                 return (movedDiagonally(src, dest) || movedVertically(src, dest) || movedHorizontally(src, dest)) &&
-                        !boardHasPiecesBetween(boardSnapshot.getBoard(), src, dest) &&
+                        !boardHasPiecesBetween(boardSnapshot.getTiles(), src, dest) &&
                         !isKingIsUnderAttackAfterMove(boardSnapshot, move);
 
             case ROOK:
                 return (movedVertically(src, dest) || movedHorizontally(src, dest)) &&
-                        !boardHasPiecesBetween(boardSnapshot.getBoard(), src, dest) &&
+                        !boardHasPiecesBetween(boardSnapshot.getTiles(), src, dest) &&
                         !isKingIsUnderAttackAfterMove(boardSnapshot, move);
 
             default:
@@ -143,7 +189,7 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
         }
 
         var positionDestToCheckForPiecesInBetween = new Position(rooksExpectedX, castlingY);
-        if (boardHasPiecesBetween(boardSnapshot.getBoard(), move.getFrom(), positionDestToCheckForPiecesInBetween)) {
+        if (boardHasPiecesBetween(boardSnapshot.getTiles(), move.getFrom(), positionDestToCheckForPiecesInBetween)) {
             return false;
         }
 
@@ -155,11 +201,11 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
         // Same as 'for x in [kingsStartingX, rooksExpectedX)' when kingsStartingX < rooksExpectedX
         // Same as 'for x in [rooksExpectedX, kingsStartingX)' when rooksExpectedX < kingsStartingX
         for (int x = kingsStartingX; Math.abs(x - rooksExpectedX) != 1 ; x += direction) {
-            var board = boardSnapshot.getBoard();
+            var tiles = boardSnapshot.getTiles();
             var playerColor = move.getColor();
             Position positionUnderCheck = new Position(x, castlingY);
 
-            if(isPositionUnderAttack(board, playerColor, positionUnderCheck)) {
+            if(isPositionUnderAttack(tiles, playerColor, positionUnderCheck)) {
                 return false;
             }
         }
@@ -173,7 +219,7 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
         }
 
         if (movedVertically(move.getFrom(), move.getTo())) {
-            if (isOccupied(boardSnapshot.getBoard(), move.getTo())) {
+            if (isOccupied(boardSnapshot.getTiles(), move.getTo())) {
                 return false;
             }
 
@@ -187,11 +233,11 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
                 return true;
             }
 
-            return isCorrectPawnDoubleSquarePush(boardSnapshot.getBoard(), move);
+            return isCorrectPawnDoubleSquarePush(boardSnapshot.getTiles(), move);
         }
 
         if (movedDiagonally(move.getFrom(), move.getTo())) {
-            if (!isOccupied(boardSnapshot.getBoard(), move.getTo())) {
+            if (!isOccupied(boardSnapshot.getTiles(), move.getTo())) {
                 return isValidEnPassant(boardSnapshot, move);
             }
 
@@ -294,9 +340,9 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
     }
 
     private boolean wasPieceEverMoved(BoardSnapshot boardSnapshot, Position position, OccupiedTile tile) {
-        List<List<Optional<OccupiedTile>>> board = boardSnapshot.getBoard();
+        List<List<Optional<OccupiedTile>>> tiles = boardSnapshot.getTiles();
         List<Move> moveHistory = boardSnapshot.getMovesHistory();
-        Optional<OccupiedTile> tileUnderCheck = board.get(position.getY())
+        Optional<OccupiedTile> tileUnderCheck = tiles.get(position.getY())
                                                      .get(position.getX());
 
         // During castling, there will be no recorded move for the Rook as it is a Kings' move.
@@ -387,53 +433,7 @@ public final class BasicMoveValidator implements MoveValidator, CheckChecker {
 
     private boolean isKingIsUnderAttackAfterMove(BoardSnapshot boardSnapshot, Move move) {
         BoardSnapshot b = applyMove(boardSnapshot, move);
-        return isKingUnderAttack(b.getBoard(), move.getColor());
-    }
-
-    private BoardSnapshot applyMove(BoardSnapshot boardSnapshot, Move move) {
-        var board = boardSnapshot.getBoard();
-        var moveHistory = boardSnapshot.getMovesHistory();
-
-        Optional<OccupiedTile> tile = board.get(move.getFrom().getY())
-                                           .get(move.getFrom().getX());
-        board.get(move.getTo().getY())
-             .set(move.getTo().getX(), tile);
-
-        board.get(move.getFrom().getY())
-             .set(move.getFrom().getX(), Optional.empty());
-
-        if (move.getPiece() == Piece.KING) {
-            int deltaX = move.getTo().getX() - move.getFrom().getX();
-            int direction = getDirection(deltaX);
-
-            if (Math.abs(deltaX) == 2) {
-                int rooksX = direction > 0 ? 7 : 0;
-
-                Optional<OccupiedTile> rooksTile = board.get(move.getFrom().getY())
-                                                        .get(move.getFrom().getX());
-
-                board.get(move.getTo().getY())
-                     .set(rooksX, Optional.empty());
-
-                board.get(move.getTo().getY())
-                     .set(move.getFrom().getX() - direction, rooksTile);
-            }
-        }
-
-        if (move.getPiece() == Piece.PAWN) {
-            if (isValidPawnPromotionData(move)) {
-                OccupiedTile promotedTile = new OccupiedTile(move.getPromotedTo().get(), move.getColor());
-                board.get(move.getTo().getY())
-                     .set(move.getTo().getX(), Optional.of(promotedTile));
-            } else if (isValidEnPassant(boardSnapshot, move)) {
-                board.get(move.getFrom().getY())
-                     .set(move.getTo().getX(), Optional.empty());
-            }
-        }
-
-        moveHistory.add(move);
-
-        return new BoardSnapshot(board, moveHistory);
+        return isKingUnderAttack(b.getTiles(), move.getColor());
     }
 
     private boolean isKingUnderAttack(List<List<Optional<OccupiedTile>>> board, Color defender) {

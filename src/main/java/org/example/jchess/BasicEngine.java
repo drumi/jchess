@@ -33,13 +33,13 @@ public class BasicEngine implements Engine {
         Color opponent = getOpponentsColor(player);
 
         if (moves.size() == 0) {
-            if (checker.isUnderCheck(boardSnapshot.getBoard(), player)) {
+            if (checker.isUnderCheck(boardSnapshot.getTiles(), player)) {
                 return new Report(player, GameState.CHECKMATE, Optional.of(opponent));
             } else {
                 return new Report(player, GameState.STALEMATE, Optional.empty());
             }
         } else {
-            if (checker.isUnderCheck(boardSnapshot.getBoard(), player)) {
+            if (checker.isUnderCheck(boardSnapshot.getTiles(), player)) {
                 return new Report(player, GameState.CHECK, Optional.of(opponent));
             } else {
                 return new Report(player, GameState.NORMAL, Optional.empty());

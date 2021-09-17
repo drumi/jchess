@@ -31,13 +31,13 @@ public class BasicMoveGenerator implements MoveGenerator {
                                     .map(m -> m.getColor() == Color.BLACK ? Color.WHITE : Color.BLACK)
                                     .orElse(Color.WHITE);
 
-        List<List<Optional<OccupiedTile>>> board = boardSnapshot.getBoard();
+        List<List<Optional<OccupiedTile>>> tiles = boardSnapshot.getTiles();
         List<Move> result = new ArrayList<>();
 
         for (int x = 0; x < 8; x++) {
             for (int y = 0; y < 8; y++) {
                 Position position = new Position(x, y);
-                Optional<OccupiedTile> tile = board.get(y).get(x);
+                Optional<OccupiedTile> tile = tiles.get(y).get(x);
                 List<Move> moves = tile.map(r -> generateDummyMovesForPiece(r.getPiece(), position, player))
                                         .orElse(new ArrayList<Move>());
                 result.addAll(moves);

@@ -7,86 +7,26 @@ public final class ChessGame implements Game {
     private final Player white;
     private final Player black;
     private final Engine engine;
+    private final Board board;
 
-    private List<List<Optional<OccupiedTile>>> board;
-    private List<Move> movesHistory;
-
-    public ChessGame(Player white, Player black, Engine engine) {
+    public ChessGame(Player white, Player black, Engine engine, Board board) {
         this.white = Objects.requireNonNull(white);
         this.black = Objects.requireNonNull(black);
         this.engine = Objects.requireNonNull(engine);
-
-        init();
-    }
-
-    private void init() {
-        initMovesHistory();
-        initBoard();
-    }
-
-    private void initMovesHistory() {
-        movesHistory = new ArrayList<>();
-    }
-
-    private void initBoard() {
-        board = Arrays.asList(
-                constructEdgeRow(Color.BLACK),
-                constructPawnRow(Color.BLACK),
-                constructEmptyRow(),
-                constructEmptyRow(),
-                constructEmptyRow(),
-                constructEmptyRow(),
-                constructPawnRow(Color.WHITE),
-                constructEdgeRow(Color.WHITE)
-        );
-    }
-
-    private List<Optional<OccupiedTile>> constructEdgeRow(Color player) {
-        var topRow = Arrays.asList(
-                Optional.of(new OccupiedTile(Piece.ROOK, player)),
-                Optional.of(new OccupiedTile(Piece.KNIGHT, player)),
-                Optional.of(new OccupiedTile(Piece.BISHOP, player)),
-                Optional.of(new OccupiedTile(Piece.QUEEN, player)),
-                Optional.of(new OccupiedTile(Piece.KING, player)),
-                Optional.of(new OccupiedTile(Piece.BISHOP, player)),
-                Optional.of(new OccupiedTile(Piece.KNIGHT, player)),
-                Optional.of(new OccupiedTile(Piece.ROOK, player))
-        );
-
-        return topRow;
-    }
-
-    private List<Optional<OccupiedTile>> constructPawnRow(Color player) {
-        List<Optional<OccupiedTile>> pawnRow = new ArrayList<>();
-
-        for (int columns = 0; columns < 8; columns++) {
-            pawnRow.add(Optional.of(new OccupiedTile(Piece.PAWN, player)));
-        }
-
-        return pawnRow;
-    }
-
-    private List<Optional<OccupiedTile>> constructEmptyRow() {
-        List<Optional<OccupiedTile>> emptyRow = new ArrayList<>();
-
-        for (int columns = 0; columns < 8; columns++) {
-            emptyRow.add(Optional.empty());
-        }
-
-        return emptyRow;
+        this.board = Objects.requireNonNull(board);
     }
 
     public void run() {
         while (true) {
             Move whiteMove = white.obtainNextMove();
-            black.notifyForOtherPlayersMove(whiteMove);
+            black.registerMove(whiteMove);
 
             if (!isGameInProgress()) {
                 break;
             }
 
             Move blackMove = black.obtainNextMove();
-            white.notifyForOtherPlayersMove(blackMove);
+            white.registerMove(blackMove);
 
             if (!isGameInProgress()) {
                 break;
@@ -95,7 +35,7 @@ public final class ChessGame implements Game {
     }
 
     private boolean isGameInProgress() {
-        Report report = engine.analyseBoard(new BoardSnapshot(board, movesHistory));
+        Report report = engine.analyseBoard(board.getSnapshot());
         GameState gameState = report.getGameState();
 
         return gameState != GameState.CHECKMATE &&
