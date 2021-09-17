@@ -1,5 +1,6 @@
 package org.example.jchess;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -8,35 +9,13 @@ public final class BasicMoveValidator implements MoveValidator {
     @Override
     public boolean isValid(BoardSnapshot boardSnapshot, Move moveToBeMade) {
 
-        if (hasSameSourceAndDestination(moveToBeMade)) {
-            return false;
-        }
-
-        if (!isMoveInbounds(moveToBeMade)) {
-            return false;
-        }
-
-        if (changesColor(boardSnapshot.getBoard(), moveToBeMade)) {
-            return false;
-        }
-
-        if (!didWhiteStart(boardSnapshot, moveToBeMade)) {
-            return false;
-        }
-
-        if (isPlayingTwice(boardSnapshot, moveToBeMade)) {
-            return false;
-        }
-
-        if (capturesPieceWithSameColor(boardSnapshot, moveToBeMade)) {
-            return false;
-        }
-
-        if (!movesLegally(boardSnapshot, moveToBeMade)) {
-            return false;
-        }
-
-        return true;
+        return hasSameSourceAndDestination(moveToBeMade) &&
+                isMoveInbounds(moveToBeMade) &&
+                !changesColor(boardSnapshot.getBoard(), moveToBeMade) &&
+                didWhiteStart(boardSnapshot, moveToBeMade) &&
+                !isPlayingTwice(boardSnapshot, moveToBeMade) &&
+                !capturesPieceWithSameColor(boardSnapshot, moveToBeMade) &&
+                movesLegally(boardSnapshot, moveToBeMade);
     }
 
     private boolean hasSameSourceAndDestination(Move move) {
@@ -264,7 +243,7 @@ public final class BasicMoveValidator implements MoveValidator {
 
         int deltaYofLastMove = lastMove.getTo().getY() - lastMove.getFrom().getY();
 
-        if (deltaYofLastMove != 2 && deltaYofLastMove != -2) {
+        if (Math.abs(deltaYofLastMove) != 2) {
             return false;
         }
 
@@ -338,6 +317,13 @@ public final class BasicMoveValidator implements MoveValidator {
     }
 
     private Optional<Position> obtainFirstOccupiedTilePositionBetween(List<List<Optional<OccupiedTile>>> board, Position src, Position dest) {
+        var tile = obtainFirstOccupiedTilePositionIncludingDest(board, src, dest);
+        boolean isDestinationTileFound = tile.map(t -> t.equals(dest))
+                                                .orElse(false);
+
+        return isDestinationTileFound ? Optional.empty() : tile;
+    }
+    private Optional<Position> obtainFirstOccupiedTilePositionIncludingDest(List<List<Optional<OccupiedTile>>> board, Position src, Position dest) {
         int deltaX = dest.getX() - src.getX();
         int deltaY = dest.getX() - dest.getY();
         int directionOfX = getDirection(deltaX);
@@ -355,11 +341,18 @@ public final class BasicMoveValidator implements MoveValidator {
             y += directionOfY;
         }
 
+        if (board.get(x).get(y).isPresent()){
+            return Optional.of(new Position(x, y));
+        }
+
         return Optional.empty();
     }
 
+
     private boolean isOccupied (List<List<Optional<OccupiedTile>>> board, Position position) {
-        return board.get(position.getY()).get(position.getX()).isPresent();
+        return board.get(position.getY())
+                    .get(position.getX())
+                    .isPresent();
     }
 
     private int getDirection(int delta) {
@@ -369,8 +362,54 @@ public final class BasicMoveValidator implements MoveValidator {
     }
 
     private boolean isKingIsUnderAttackAfterMove(BoardSnapshot boardSnapshot, Move move) {
-        //TODO
-        return false;
+        BoardSnapshot b = applyMove(boardSnapshot, move);
+        return isKingUnderAttack(b.getBoard(), move.getColor());
+    }
+
+    private BoardSnapshot applyMove(BoardSnapshot boardSnapshot, Move move) {
+        var board = boardSnapshot.getBoard();
+        var moveHistory = boardSnapshot.getMovesHistory();
+
+        Optional<OccupiedTile> tile = board.get(move.getFrom().getY())
+                                           .get(move.getFrom().getX());
+        board.get(move.getTo().getY())
+             .set(move.getTo().getX(), tile);
+
+        board.get(move.getFrom().getY())
+             .set(move.getFrom().getX(), Optional.empty());
+
+        if (move.getPiece() == Piece.KING) {
+            int deltaX = move.getTo().getX() - move.getFrom().getX();
+            int direction = getDirection(deltaX);
+
+            if (Math.abs(deltaX) == 2) {
+                int rooksX = direction > 0 ? 7 : 0;
+
+                Optional<OccupiedTile> rooksTile = board.get(move.getFrom().getY())
+                                                        .get(move.getFrom().getX());
+
+                board.get(move.getTo().getY())
+                     .set(rooksX, Optional.empty());
+
+                board.get(move.getTo().getY())
+                     .set(move.getFrom().getX() - direction, rooksTile);
+            }
+        }
+
+        if (move.getPiece() == Piece.PAWN) {
+            if (isValidPawnPromotionData(move)) {
+                OccupiedTile promotedTile = new OccupiedTile(move.getPromotedTo().get(), move.getColor());
+                board.get(move.getTo().getY())
+                     .set(move.getTo().getX(), Optional.of(promotedTile));
+            } else if (isValidEnPassant(boardSnapshot, move)) {
+                board.get(move.getFrom().getY())
+                     .set(move.getTo().getX(), Optional.empty());
+            }
+        }
+
+        moveHistory.add(move);
+
+        return new BoardSnapshot(board, moveHistory);
     }
 
     private boolean isKingUnderAttack(List<List<Optional<OccupiedTile>>> board, Color defender) {
@@ -390,7 +429,82 @@ public final class BasicMoveValidator implements MoveValidator {
     }
 
     private boolean isPositionUnderAttack(List<List<Optional<OccupiedTile>>> board, Color defender, Position position) {
-        // TODO
+        int x = position.getX();
+        int y = position.getY();
+        Color attacker = (defender == Color.WHITE) ? Color.WHITE : Color.BLACK;
+
+        List<Position> edges = Arrays.asList(
+                new Position(x, 0), // up
+                new Position(x, 7), // down
+                new Position(0, y), // left
+                new Position(7, y), // right
+                new Position(Math.min(7, x + y), Math.max(0, x + y - 7)), // right up
+                new Position(Math.max(0, x + y - 7), Math.min(7, x + y)), // left down
+                new Position(Math.max(y - x, 0), Math.max(x - y, 0)), // left up
+                new Position(Math.max(x - y, 0),Math.min(y - x + 7, 7)) // left down
+        );
+
+        for(Position edge : edges) {
+            Optional<Position> pos = obtainFirstOccupiedTilePositionIncludingDest(board, position, edge);
+            Optional<OccupiedTile> optionalTile = pos.map(p -> board.get(p.getY()).get(p.getX()))
+                                             .orElse(Optional.empty());
+
+            if (optionalTile.isPresent()) {
+                OccupiedTile tile = optionalTile.get();
+
+                if (tile.getPlayerColor() != defender) {
+                    switch (tile.getPiece()) {
+                        case BISHOP:
+                            return movedDiagonally(edge, position);
+                        case KING:
+                            return areNeighbouringPositions(edge, position);
+                        case KNIGHT:
+                            return false;
+                        case PAWN:
+                            return movedDiagonally(edge, position) &&
+                                    areNeighbouringPositions(edge, position) &&
+                                    movedForward(edge, position, attacker);
+
+                        case QUEEN:
+                            return true;
+                        case ROOK:
+                            return movedHorizontally(edge, position) ||
+                                    movedVertically(edge, position);
+                    }
+                }
+            }
+        }
+
+        return isAttackedFromAKnight(board, defender, position);
+    }
+
+    private boolean isAttackedFromAKnight(List<List<Optional<OccupiedTile>>> board, Color defender, Position position) {
+        int x = position.getX();
+        int y = position.getY();
+
+        for (int i = x - 2; i < x + 2; i++) {
+            for (int j = y - 2; j < y + 2; j++) {
+                if (i * i + j * j == 5 && i >= 0 && j >= 0) {
+                    Optional<OccupiedTile> tile = board.get(j).get(i);
+                    boolean isThereAnEnemyKnight =tile.map(t -> t.getPiece() == Piece.KNIGHT && t.getPlayerColor() != defender)
+                                                      .orElse(false);
+                    if (isThereAnEnemyKnight) {
+                        return true;
+                    }
+                }
+            }
+        }
+
         return false;
+    }
+
+    private boolean movedForward(Position src, Position dest, Color player) {
+        int deltaY = dest.getY() - dest.getX();
+
+        if (player == Color.WHITE) {
+            return deltaY > 0;
+        }
+
+        return deltaY < 0;
     }
 }
