@@ -3,11 +3,11 @@ package org.example.jchess;
 import java.util.Objects;
 import java.util.Optional;
 
-public class Report {
+public final class Report {
 
-    private Color playersTurn;
-    private GameState gameState;
-    private Optional<Color> winner;
+    private final Color playersTurn;
+    private final GameState gameState;
+    private final Optional<Color> winner;
 
     public Report(Color playersTurn, GameState gameState, Optional<Color> winner) {
         this.playersTurn = Objects.requireNonNull(playersTurn);

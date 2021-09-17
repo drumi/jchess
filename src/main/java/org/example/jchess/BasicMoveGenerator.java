@@ -2,13 +2,15 @@ package org.example.jchess;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
-public class BasicMoveGenerator implements MoveGenerator{
-    MoveValidator validator;
+public class BasicMoveGenerator implements MoveGenerator {
+
+    private final MoveValidator validator;
 
     public BasicMoveGenerator(MoveValidator validator) {
-        this.validator = validator;
+        this.validator = Objects.requireNonNull(validator);
     }
 
     @Override

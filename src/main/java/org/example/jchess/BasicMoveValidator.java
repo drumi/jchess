@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-public final class BasicMoveValidator implements MoveValidator {
+public final class BasicMoveValidator implements MoveValidator, CheckChecker {
 
     @Override
     public boolean isValid(BoardSnapshot boardSnapshot, Move moveToBeMade) {
@@ -17,6 +17,11 @@ public final class BasicMoveValidator implements MoveValidator {
                 !isPlayingTwice(boardSnapshot, moveToBeMade) &&
                 !capturesPieceWithSameColor(boardSnapshot, moveToBeMade) &&
                 movesLegally(boardSnapshot, moveToBeMade);
+    }
+
+    @Override
+    public boolean isUnderCheck(List<List<Optional<OccupiedTile>>> board, Color defender) {
+        return isKingUnderAttack(board, defender);
     }
 
     private boolean hasSameSourceAndDestination(Move move) {
@@ -241,7 +246,7 @@ public final class BasicMoveValidator implements MoveValidator {
         return isThereABlockingPiece;
     }
 
-    boolean isValidEnPassant(BoardSnapshot boardSnapshot, Move move) {
+    private boolean isValidEnPassant(BoardSnapshot boardSnapshot, Move move) {
         if (move.getPiece() != Piece.PAWN) {
             return false;
         }
@@ -342,6 +347,7 @@ public final class BasicMoveValidator implements MoveValidator {
 
         return isDestinationTileFound ? Optional.empty() : tilePosition;
     }
+
     private Optional<Position> obtainFirstOccupiedTilePositionIncludingDest(List<List<Optional<OccupiedTile>>> board, Position src, Position dest) {
         int deltaX = dest.getX() - src.getX();
         int deltaY = dest.getY() - src.getY();
@@ -366,7 +372,6 @@ public final class BasicMoveValidator implements MoveValidator {
 
         return Optional.empty();
     }
-
 
     private boolean isOccupied (List<List<Optional<OccupiedTile>>> board, Position position) {
         return board.get(position.getY())

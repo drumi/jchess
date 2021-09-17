@@ -3,9 +3,6 @@ package org.example.jchess;
 import org.junit.*;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
 
 public class BasicMoveGeneratorTest {
 
