@@ -1,0 +1,7 @@
+<FindBugsFilter>
+    <Match>
+        <Class name="org.example.jchess.StreamPlayer" />
+        <Method name="&lt;init&gt;" />
+        <Bug pattern="EI_EXPOSE_REP2" />
+    </Match>
+</FindBugsFilter>

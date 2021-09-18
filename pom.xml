@@ -57,6 +57,9 @@
                         <version>4.4.1</version>
                     </dependency>
                 </dependencies>
+                <configuration>
+                    <excludeFilterFile>excludeFilter.xml</excludeFilterFile>
+                </configuration>
                 <executions>
                     <execution>
                         <id>check</id>

@@ -1,37 +1,46 @@
 package org.example.jchess;
 
-import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.Socket;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 public class StreamPlayer implements Player {
 
     private Board board;
     private InputStream input;
     private OutputStream output;
+    private MoveSerializer serializer;
 
-    public StreamPlayer(Board board, InputStream input, OutputStream output) {
+    public StreamPlayer(Board board, InputStream input, OutputStream output, MoveSerializer serializer) {
         this.board = Objects.requireNonNull(board);
+        this.input = Objects.requireNonNull(input);
+        this.output = Objects.requireNonNull(output);
+        this.serializer = Objects.requireNonNull(serializer);
     }
 
     @Override
     public Move obtainNextMove() {
-        return null;
+        try {
+            byte[] bytes = input.readAllBytes();
+            Move move = serializer.deserialize(bytes);
+            board.applyMove(move);
+            return move;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public void registerMove(Move move) {
+        try {
+            byte[] bytes = serializer.serialize(move);
+            output.write(bytes);
+            output.flush();
+            board.applyMove(move);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
-    }
-
-    private byte[] toBytes(Move move) {
-        return null;
-    }
-
-    private Move fromBytes(byte[] buf) {
-        return null;
     }
 }
