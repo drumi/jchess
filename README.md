@@ -1,1 +1,1 @@
-# abandoned java chess project
+# java chess project
