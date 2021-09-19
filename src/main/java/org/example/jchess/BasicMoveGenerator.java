@@ -23,6 +23,7 @@ public class BasicMoveGenerator implements MoveGenerator {
                 validMoves.add(move);
             }
         }
+
         return validMoves;
     }
 
@@ -54,8 +55,8 @@ public class BasicMoveGenerator implements MoveGenerator {
 
         // Knight moves
         if (piece == Piece.KNIGHT) {
-            for (int x = srcX - 2; x < srcX + 2; x++) {
-                for (int y = srcY - 2; y < srcY + 2; y++) {
+            for (int x = srcX - 2; x <= srcX + 2; x++) {
+                for (int y = srcY - 2; y <= srcY + 2; y++) {
                     int deltaX = srcX - x;
                     int deltaY = srcY - y;
                     if (deltaX * deltaX + deltaY * deltaY == 5 && x >= 0 && y >= 0) {
@@ -76,20 +77,35 @@ public class BasicMoveGenerator implements MoveGenerator {
         // Vertical moves
         for (int y = 0; y < 8; y++) {
             result.add(new Move(position, new Position(srcX, y), piece, player, Optional.empty()));
+            if (piece == Piece.PAWN) {
+                result.add(new Move(position, new Position(srcX, y), piece, player, Optional.of(Piece.QUEEN)));
+            }
         }
 
         // Diagonal moves
         for (int x = srcX, y = srcY; x < 8 && y < 8; x++, y++) {
             result.add(new Move(position, new Position(x, y), piece, player, Optional.empty()));
+            if (piece == Piece.PAWN) {
+                result.add(new Move(position, new Position(x, y), piece, player, Optional.of(Piece.QUEEN)));
+            }
         }
         for (int x = srcX, y = srcY; x >= 0 && y < 8; x--, y++) {
             result.add(new Move(position, new Position(x, y), piece, player, Optional.empty()));
+            if (piece == Piece.PAWN) {
+                result.add(new Move(position, new Position(x, y), piece, player, Optional.of(Piece.QUEEN)));
+            }
         }
         for (int x = srcX, y = srcY; x < 8 && y >= 0; x++, y--) {
             result.add(new Move(position, new Position(x, y), piece, player, Optional.empty()));
+            if (piece == Piece.PAWN) {
+                result.add(new Move(position, new Position(x, y), piece, player, Optional.of(Piece.QUEEN)));
+            }
         }
         for (int x = srcX, y = srcY; x >= 0 && y >= 0; x--, y--) {
             result.add(new Move(position, new Position(x, y), piece, player, Optional.empty()));
+            if (piece == Piece.PAWN) {
+                result.add(new Move(position, new Position(x, y), piece, player, Optional.of(Piece.QUEEN)));
+            }
         }
 
         return result;

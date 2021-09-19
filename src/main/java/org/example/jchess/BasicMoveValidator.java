@@ -137,7 +137,7 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
 
             case KING:
                 boolean movedLikeAKing =
-                        (movedVertically(src, dest) || movedHorizontally(src, dest)) &&
+                        (movedVertically(src, dest) || movedHorizontally(src, dest) || movedDiagonally(src, dest)) &&
                         areNeighbouringPositions(src, dest);
 
                 return (movedLikeAKing || isCorrectCastlingMove(boardSnapshot, move)) &&
@@ -193,8 +193,8 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
             return false;
         }
 
-        if (wasPieceEverMoved(boardSnapshot, move.getFrom(), kingsTile) &&
-                wasPieceEverMoved(boardSnapshot, new Position(rooksExpectedX, castlingY), rooksTile)) {
+        if (wasPieceEverMovedOrCaptured(boardSnapshot, move.getFrom(), kingsTile) &&
+                wasPieceEverMovedOrCaptured(boardSnapshot, new Position(rooksExpectedX, castlingY), rooksTile)) {
             return false;
         }
 
@@ -230,7 +230,7 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
                     return isValidPawnPromotionData(move);
                 }
 
-                return true;
+                return !move.getPromotedTo().isPresent();
             }
 
             return isCorrectPawnDoubleSquarePush(boardSnapshot.getTiles(), move);
@@ -251,14 +251,14 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
                 return isValidPawnPromotionData(move);
             }
 
-            return true;
+            return !move.getPromotedTo().isPresent();
         }
 
         return false;
     }
 
     private boolean isCorrectPawnDoubleSquarePush(List<List<Optional<OccupiedTile>>> board, Move move) {
-        if (move.getPiece() != Piece.PAWN) {
+        if (move.getPiece() != Piece.PAWN || move.getPromotedTo().isPresent()) {
             return false;
         }
 
@@ -286,10 +286,8 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
             return false;
         }
 
-        int directionY = getDirection(deltaY);
-        boolean isThereABlockingPiece = boardHasPiecesBetween(board, move.getFrom(), new Position(destX, destY + directionY));
-
-        return isThereABlockingPiece;
+        boolean isThereABlockingPiece = obtainFirstOccupiedTilePositionIncludingDest(board, move.getFrom(), new Position(destX, destY)).isPresent();
+        return !isThereABlockingPiece;
     }
 
     private boolean isValidEnPassant(BoardSnapshot boardSnapshot, Move move) {
@@ -339,7 +337,7 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
                 (destY == 7 && playerColor == Color.BLACK);
     }
 
-    private boolean wasPieceEverMoved(BoardSnapshot boardSnapshot, Position position, OccupiedTile tile) {
+    private boolean wasPieceEverMovedOrCaptured(BoardSnapshot boardSnapshot, Position position, OccupiedTile tile) {
         List<List<Optional<OccupiedTile>>> tiles = boardSnapshot.getTiles();
         List<Move> moveHistory = boardSnapshot.getMovesHistory();
         Optional<OccupiedTile> tileUnderCheck = tiles.get(position.getY())
@@ -350,9 +348,9 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
         boolean isThePieceStillOnTheTile = tileUnderCheck.map(t -> t.getPiece() == tile.getPiece())
                                                          .orElse(false);
 
-        boolean wasThePieceMoved = moveHistory.stream().anyMatch(move -> move.getFrom().equals(position));
+        boolean wasThePieceMovedOrCaptured = moveHistory.stream().anyMatch(move -> move.getTo().equals(position));
 
-        return wasThePieceMoved || !isThePieceStillOnTheTile;
+        return wasThePieceMovedOrCaptured || !isThePieceStillOnTheTile;
     }
 
     private boolean movedHorizontally(Position src, Position dest) {
@@ -403,17 +401,13 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
         int x = src.getX();
         int y = src.getY();
 
-        while (x != dest.getX() && y != dest.getY()) {
-            if (board.get(y).get(x).isPresent()){
-                return Optional.of(new Position(x, y));
-            }
-
+        while (x != dest.getX() || y != dest.getY()) {
             x += directionOfX;
             y += directionOfY;
-        }
 
-        if (board.get(y).get(x).isPresent()){
-            return Optional.of(new Position(x, y));
+            if (board.get(y).get(x).isPresent()) {
+                return Optional.of(new Position(x, y));
+            }
         }
 
         return Optional.empty();
@@ -455,17 +449,17 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
     private boolean isPositionUnderAttack(List<List<Optional<OccupiedTile>>> board, Color defender, Position position) {
         int x = position.getX();
         int y = position.getY();
-        Color attacker = (defender == Color.WHITE) ? Color.WHITE : Color.BLACK;
+        Color attacker = (defender == Color.WHITE) ? Color.BLACK : Color.WHITE;
 
         List<Position> edges = Arrays.asList(
-                new Position(x, 0), // up
-                new Position(x, 7), // down
-                new Position(0, y), // left
-                new Position(7, y), // right
-                new Position(Math.min(7, x + y), Math.max(0, x + y - 7)), // right up
-                new Position(Math.max(0, x + y - 7), Math.min(7, x + y)), // left down
-                new Position(Math.max(y - x, 0), Math.max(x - y, 0)), // left up
-                new Position(Math.max(x - y, 0),Math.min(y - x + 7, 7)) // left down
+                new Position(x, 0),
+                new Position(x, 7),
+                new Position(0, y),
+                new Position(7, y),
+                new Position(Math.max(x - y, 0), Math.max(y - x, 0)),
+                new Position(Math.min(x - y + 7, 7), Math.min(y - x + 7, 7)),
+                new Position(Math.min(x + y, 7), Math.max(x + y - 7, 0)),
+                new Position(Math.max(x + y - 7, 0),Math.min(x + y, 7))
         );
 
         for(Position edge : edges) {
@@ -475,25 +469,40 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
 
             if (optionalTile.isPresent()) {
                 OccupiedTile tile = optionalTile.get();
+                Position positionOfFoundTile = pos.get();
 
-                if (tile.getPlayerColor() != defender) {
+                if (tile.getPlayerColor() == attacker) {
                     switch (tile.getPiece()) {
                         case BISHOP:
-                            return movedDiagonally(edge, position);
+                            if(movedDiagonally(positionOfFoundTile, position)) {
+                                return true;
+                            }
+                            break;
                         case KING:
-                            return areNeighbouringPositions(edge, position);
+                            if (areNeighbouringPositions(positionOfFoundTile, position)) {
+                                return true;
+                            }
+                            break;
                         case KNIGHT:
-                            return false;
+                                continue;
                         case PAWN:
-                            return movedDiagonally(edge, position) &&
-                                    areNeighbouringPositions(edge, position) &&
-                                    movedForward(edge, position, attacker);
+                            if (movedDiagonally(positionOfFoundTile, position) &&
+                                areNeighbouringPositions(positionOfFoundTile, position) &&
+                                movedForward(positionOfFoundTile, position, attacker)) {
+                                return true;
+                            }
+                            break;
 
                         case QUEEN:
                             return true;
                         case ROOK:
-                            return movedHorizontally(edge, position) ||
-                                    movedVertically(edge, position);
+                            if (movedHorizontally(positionOfFoundTile, position) ||
+                                movedVertically(positionOfFoundTile, position)) {
+                                return true;
+                            }
+                            break;
+                        default:
+                            throw new IllegalStateException("Unexpected value: " + tile.getPiece());
                     }
                 }
             }
@@ -506,9 +515,11 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
         int x = position.getX();
         int y = position.getY();
 
-        for (int i = x - 2; i < x + 2; i++) {
-            for (int j = y - 2; j < y + 2; j++) {
-                if (i * i + j * j == 5 && i >= 0 && j >= 0) {
+        for (int i = x - 2; i <= x + 2; i++) {
+            for (int j = y - 2; j <= y + 2; j++) {
+                int deltaX = i - x;
+                int deltaY = j - y;
+                if (deltaX * deltaX + deltaY * deltaY == 5 && i >= 0 && j >= 0 && i < 8 && j < 8) {
                     Optional<OccupiedTile> tile = board.get(j).get(i);
                     boolean isThereAnEnemyKnight =tile.map(t -> t.getPiece() == Piece.KNIGHT && t.getPlayerColor() != defender)
                                                       .orElse(false);

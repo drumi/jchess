@@ -4,8 +4,8 @@ import java.util.Objects;
 
 public class ChaoticPlayer implements Player {
 
-    private Board board;
-    private MoveGenerator generator;
+    private final Board board;
+    private final MoveGenerator generator;
 
     public ChaoticPlayer(Board board, MoveGenerator generator) {
         this.board = Objects.requireNonNull(board);
@@ -18,7 +18,10 @@ public class ChaoticPlayer implements Player {
         int size = moves.size();
         int idx = (int) Math.floor(size * Math.random());
 
-        return moves.get(idx);
+        Move move = moves.get(idx);
+        board.applyMove(move);
+
+        return move;
     }
 
     @Override
