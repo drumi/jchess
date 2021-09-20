@@ -1,6 +1,17 @@
 package org.example.jchess;
 
-public final class ConsoleRenderer implements Renderer {
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+
+public final class StreamRenderer implements Renderer {
+
+    private final PrintStream printStream;
+    public StreamRenderer(OutputStream outputStream) {
+        Objects.requireNonNull(outputStream);
+        this.printStream = new PrintStream(outputStream, false, StandardCharsets.UTF_8);
+    }
 
     @Override
     public void draw(BoardSnapshot snapshot) {
@@ -8,20 +19,20 @@ public final class ConsoleRenderer implements Renderer {
         var tiles = snapshot.getTiles();
 
         for (int row = 0; row < 8; row++) {
-            System.out.print("|");
+            printStream.print("|");
 
             for (int col = 0; col < 8; col++) {
                 tiles.get(row).get(col)
                      .ifPresentOrElse(t -> drawTile(t),
                                       ()-> drawEmptyTile());
 
-                System.out.print("|");
+                printStream.print("|");
             }
 
-            System.out.print("\n");
+            printStream.print("\n");
         }
 
-        System.out.print("\n\n\n");
+        printStream.print("\n\n\n");
     }
 
     private void drawTile(OccupiedTile tile) {

@@ -5,14 +5,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
 
-public class StreamPlayer implements Player {
+public class StreamPlayerProxy implements Player {
 
     private Board board;
     private InputStream input;
     private OutputStream output;
     private MoveSerializer serializer;
 
-    public StreamPlayer(Board board, InputStream input, OutputStream output, MoveSerializer serializer) {
+    public StreamPlayerProxy(Board board, InputStream input, OutputStream output, MoveSerializer serializer) {
         this.board = Objects.requireNonNull(board);
         this.input = Objects.requireNonNull(input);
         this.output = Objects.requireNonNull(output);

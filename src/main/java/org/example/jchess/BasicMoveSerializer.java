@@ -80,23 +80,23 @@ public class BasicMoveSerializer implements MoveSerializer {
         }
 
         if ("king".equals(s)) {
-            return Piece.BISHOP;
+            return Piece.KING;
         }
 
         if ("knight".equals(s)) {
-            return Piece.BISHOP;
+            return Piece.KNIGHT;
         }
 
         if ("pawn".equals(s)) {
-            return Piece.BISHOP;
+            return Piece.PAWN;
         }
 
         if ("queen".equals(s)) {
-            return Piece.BISHOP;
+            return Piece.QUEEN;
         }
 
         if ("rook".equals(s)) {
-            return Piece.BISHOP;
+            return Piece.ROOK;
         }
 
         throw new RuntimeException("This code should not be reachable!");

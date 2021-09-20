@@ -30,11 +30,6 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
 
         Optional<OccupiedTile> tile = tiles.get(move.getFrom().getY())
                                            .get(move.getFrom().getX());
-        tiles.get(move.getTo().getY())
-             .set(move.getTo().getX(), tile);
-
-        tiles.get(move.getFrom().getY())
-             .set(move.getFrom().getX(), Optional.empty());
 
         if (move.getPiece() == Piece.KING) {
             int deltaX = move.getTo().getX() - move.getFrom().getX();
@@ -44,25 +39,31 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
                 int rooksX = direction > 0 ? 7 : 0;
 
                 Optional<OccupiedTile> rooksTile = tiles.get(move.getFrom().getY())
-                                                        .get(move.getFrom().getX());
+                                                        .get(rooksX);
 
                 tiles.get(move.getTo().getY())
                      .set(rooksX, Optional.empty());
 
-                tiles.get(move.getTo().getY())
-                     .set(move.getFrom().getX() - direction, rooksTile);
+                tiles.get(move.getFrom().getY())
+                     .set(move.getFrom().getX() + direction, rooksTile);
             }
         }
 
-        if (move.getPiece() == Piece.PAWN) {
-            if (isValidPawnPromotionData(move)) {
-                OccupiedTile promotedTile = new OccupiedTile(move.getPromotedTo().get(), move.getColor());
-                tiles.get(move.getTo().getY())
-                     .set(move.getTo().getX(), Optional.of(promotedTile));
-            } else if (isValidEnPassant(boardSnapshot, move)) {
-                tiles.get(move.getFrom().getY())
-                     .set(move.getTo().getX(), Optional.empty());
-            }
+        if (isValidEnPassant(boardSnapshot, move)) {
+            tiles.get(move.getFrom().getY())
+                 .set(move.getTo().getX(), Optional.empty());
+        }
+
+        tiles.get(move.getTo().getY())
+             .set(move.getTo().getX(), tile);
+
+        tiles.get(move.getFrom().getY())
+             .set(move.getFrom().getX(), Optional.empty());
+
+        if (isValidPawnPromotionData(move)) {
+            OccupiedTile promotedTile = new OccupiedTile(move.getPromotedTo().get(), move.getColor());
+            tiles.get(move.getTo().getY())
+                 .set(move.getTo().getX(), Optional.of(promotedTile));
         }
 
         moveHistory.add(move);
@@ -193,7 +194,7 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
             return false;
         }
 
-        if (wasPieceEverMovedOrCaptured(boardSnapshot, move.getFrom(), kingsTile) &&
+        if (wasPieceEverMovedOrCaptured(boardSnapshot, move.getFrom(), kingsTile) ||
                 wasPieceEverMovedOrCaptured(boardSnapshot, new Position(rooksExpectedX, castlingY), rooksTile)) {
             return false;
         }
@@ -299,7 +300,11 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
             return false;
         }
 
-        if (!movedVertically(move.getFrom(), move.getTo())) {
+        if (boardSnapshot.getLastMove().get().getPiece() != Piece.PAWN) {
+            return false;
+        }
+
+        if (!movedDiagonally(move.getFrom(), move.getTo())) {
             return false;
         }
 
@@ -315,7 +320,12 @@ public final class BasicMoveValidator implements MoveValidator, MoveApplier, Che
             return false;
         }
 
-        return lastMove.getTo().getX() == move.getTo().getX();
+        if (!areNeighbouringPositions(lastMove.getTo(), move.getFrom()) ||
+            !movedHorizontally(lastMove.getTo(), move.getFrom())) {
+            return false;
+        }
+
+        return true;
     }
 
     private boolean isValidPawnPromotionData(Move move) {

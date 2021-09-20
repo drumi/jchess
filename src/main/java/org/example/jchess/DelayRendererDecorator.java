@@ -3,12 +3,12 @@ package org.example.jchess;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-public class DelayRendererWrapper implements Renderer {
+public class DelayRendererDecorator implements Renderer {
 
     private final Renderer renderer;
     private final int delayMilliseconds;
 
-    public DelayRendererWrapper(Renderer renderer, int delayMilliseconds) {
+    public DelayRendererDecorator(Renderer renderer, int delayMilliseconds) {
         this.renderer = Objects.requireNonNull(renderer);
         this.delayMilliseconds = delayMilliseconds;
     }

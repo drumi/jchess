@@ -20,8 +20,8 @@ public class Main {
         Player white = new ChaoticPlayer(whiteBoard, generator);
         Player black = new ChaoticPlayer(blackBoard, generator);
 
-        Renderer baseRenderer = new ConsoleRenderer();
-        Renderer renderer = new DelayRendererWrapper(baseRenderer, DELAY_MS);
+        Renderer baseRenderer = new StreamRenderer(System.out);
+        Renderer renderer = new DelayRendererDecorator(baseRenderer, DELAY_MS);
 
         Game game = new ChessGame(white, black, engine, gameBoard, renderer);
 

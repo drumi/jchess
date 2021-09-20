@@ -19,6 +19,8 @@ public final class ChessGame implements Game {
     }
 
     public void run() {
+        renderer.draw(board.getSnapshot());
+
         while (true) {
             Move whiteMove = white.obtainNextMove();
             black.registerMove(whiteMove);
